@@ -1,0 +1,63 @@
+# Node.js / TypeScript / Vite outputs and caches
+node_modules/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+.vitest/
+.cache/
+.eslintcache
+.npm/
+*.log
+
+# Local environment and package-manager credentials
+.env*
+!/.env.example
+.npmrc
+.yarnrc.yml.local
+
+# Firebase / Google credentials and local emulator state
+.firebase/
+.firebaserc
+firebase-export-*/
+firebase-debug.*
+firestore-debug.*
+ui-debug.*
+*-firebase-adminsdk-*.json
+*service-account*.json
+*service_account*.json
+application_default_credentials.json
+credentials.json
+token.json
+tokens.json
+*.key
+*.p12
+*.pfx
+*.pem
+*.keystore
+*.jks
+id_rsa
+id_ed25519
+
+# Local editor / OS files
+.idea/
+.vscode/*.local.json
+*.local.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# AI Studio artifact bundles / local scratch (not application metadata)
+/themedialogueai*.zip
+/.aistudio.local/
+/tmp/
+/temp/
+
+# Local repository transfers and private audit material
+*.bundle
+/private-backup/
+/audit-results/

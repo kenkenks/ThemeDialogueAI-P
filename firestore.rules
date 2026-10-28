@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // デフォルト拒否（全パス）
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Google認証プロバイダ判定
+    function isGoogleAuth() {
+      return request.auth != null &&
+        request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // 20桁英数字のuser_idフォーマット検証
+    function isValidUserId(id) {
+      return id is string &&
+        id.size() == 20 &&
+        id.matches('^[a-zA-Z0-9]+$');
+    }
+
+    // auth_bindings コレクション（UIDからuser_idへの不変対応）
+    match /auth_bindings/{auth_uid} {
+      // 本人による参照のみ許可（未存在時のgetも初回作成判定のため許可）
+      allow get: if isGoogleAuth() && request.auth.uid == auth_uid;
+
+      // 初回トランザクションでの作成のみ許可（getAfterでusersとの相互参照を検証）
+      allow create: if isGoogleAuth() &&
+        request.auth.uid == auth_uid &&
+        request.resource.data.keys().hasOnly(['user_id', 'created_at', 'schema_version']) &&
+        request.resource.data.keys().hasAll(['user_id', 'created_at', 'schema_version']) &&
+        isValidUserId(request.resource.data.user_id) &&
+        request.resource.data.schema_version == 1 &&
+        request.resource.data.created_at == request.time &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.auth_uid == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.user_id == request.resource.data.user_id &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.created_at == request.time &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.schema_version == 1;
+
+      // 更新・削除・一覧取得は本人含めすべて拒否
+      allow update, delete, list: if false;
+    }
+
+    // users コレクション（最小ユーザーマスタ）
+    match /users/{user_id} {
+      // 本人の取得のみ許可（auth_bindingsとの相互参照を確認）
+      allow get: if isGoogleAuth() &&
+        resource.data.auth_uid == request.auth.uid &&
+        resource.data.user_id == user_id &&
+        get(/databases/$(database)/documents/auth_bindings/$(request.auth.uid)).data.user_id == user_id;
+
+      // 初回トランザクションでの作成のみ許可（既存bindingなし、getAfterでbindingを検証）
+      allow create: if isGoogleAuth() &&
+        request.resource.data.auth_uid == request.auth.uid &&
+        request.resource.data.user_id == user_id &&
+        isValidUserId(user_id) &&
+        request.resource.data.keys().hasOnly(['user_id', 'auth_uid', 'created_at', 'schema_version']) &&
+        request.resource.data.keys().hasAll(['user_id', 'auth_uid', 'created_at', 'schema_version']) &&
+        request.resource.data.schema_version == 1 &&
+        request.resource.data.created_at == request.time &&
+        !exists(/databases/$(database)/documents/auth_bindings/$(request.auth.uid)) &&
+        getAfter(/databases/$(database)/documents/auth_bindings/$(request.auth.uid)).data.user_id == user_id &&
+        getAfter(/databases/$(database)/documents/auth_bindings/$(request.auth.uid)).data.created_at == request.time &&
+        getAfter(/databases/$(database)/documents/auth_bindings/$(request.auth.uid)).data.schema_version == 1;
+
+      // 更新・削除・一覧取得は本人含めすべて拒否
+      allow update, delete, list: if false;
+    }
+  }
+}
